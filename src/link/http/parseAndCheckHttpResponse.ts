@@ -1,7 +1,11 @@
+import { meros } from 'meros';
+import { InvariantError } from 'ts-invariant';
+import { ApolloQueryResult, IncrementalDeliveryPayload } from '../../core';
 import { Operation } from '../core';
-import { throwServerError } from '../utils';
+import { isAsyncIterable } from '../utils/isAsyncIterable';
+import { decorateError, serverParseError } from './errors';
 
-const { hasOwnProperty } = Object.prototype;
+const headersToString = (headers:Record<string, string>) => Object.entries(headers).map(([key, val]) => `${key}: ${val}`).join('\n');
 
 export type ServerParseError = Error & {
   response: Response;
@@ -12,46 +16,26 @@ export type ServerParseError = Error & {
 export function parseAndCheckHttpResponse(
   operations: Operation | Operation[],
 ) {
-  return (response: Response) => response
-    .text()
-    .then(bodyText => {
-      try {
-        return JSON.parse(bodyText);
-      } catch (err) {
-        const parseError = err as ServerParseError;
-        parseError.name = 'ServerParseError';
-        parseError.response = response;
-        parseError.statusCode = response.status;
-        parseError.bodyText = bodyText;
-        throw parseError;
+  const checkErrors = decorateError(operations);
+  return <T>(response: Response) => meros<IncrementalDeliveryPayload<T>>(response)
+    .then(async function*(maybeParts) {
+      if (isAsyncIterable(maybeParts)) {
+        for await (const part of maybeParts) {
+          if (!part.json) throw serverParseError(new InvariantError(`Expected json part, but received:\nHeaders:\n${headersToString(part.headers)}`), part.body.toString('utf8'), response);
+          checkErrors(response, part.body);
+          yield part.body;
+        }
+      } else {
+        const bodyText = await maybeParts.text();
+        let result: ApolloQueryResult<T>;
+        try {
+          result = JSON.parse(bodyText);
+        } catch (err) {
+          throw serverParseError(err, bodyText, response);
+        }
+
+        checkErrors(response, result);
+        yield result;
       }
     })
-    .then((result: any) => {
-      if (response.status >= 300) {
-        // Network error
-        throwServerError(
-          response,
-          result,
-          `Response not successful: Received status code ${response.status}`,
-        );
-      }
-
-      if (
-        !Array.isArray(result) &&
-        !hasOwnProperty.call(result, 'data') &&
-        !hasOwnProperty.call(result, 'errors')
-      ) {
-        // Data error
-        throwServerError(
-          response,
-          result,
-          `Server response was missing for query '${
-            Array.isArray(operations)
-              ? operations.map(op => op.operationName)
-              : operations.operationName
-          }'.`,
-        );
-      }
-      return result;
-    });
 }

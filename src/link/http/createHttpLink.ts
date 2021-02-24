@@ -3,9 +3,9 @@ import { visit } from 'graphql/language/visitor';
 
 import { ApolloLink } from '../core';
 import { Observable } from '../../utilities';
+import { parseAndCheckHttpResponse } from './parseAndCheckHttpResponse';
 import { serializeFetchParameter } from './serializeFetchParameter';
 import { selectURI } from './selectURI';
-import { parseAndCheckHttpResponse } from './parseAndCheckHttpResponse';
 import { checkFetcher } from './checkFetcher';
 import {
   selectHttpOptionsAndBody,
@@ -149,9 +149,12 @@ export const createHttpLink = (linkOptions: HttpOptions = {}) => {
           return response;
         })
         .then(parseAndCheckHttpResponse(operation))
-        .then(result => {
-          // we have data and can send it to back up the link chain
-          observer.next(result);
+        .then(async function*(result)  {
+          
+          for await (const payload of result) {
+            // we have data and can send it to back up the link chain
+            observer.next(payload);
+          }
           observer.complete();
           return result;
         })

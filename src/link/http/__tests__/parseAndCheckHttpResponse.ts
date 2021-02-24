@@ -24,7 +24,7 @@ describe('parseAndCheckResponse', () => {
     fetchMock.mock('begin:/error', status);
     fetch('error')
       .then(parseAndCheckHttpResponse(operations))
-      .then(done.fail)
+      .then(async r => done.fail((await r.next()).value))
       .catch(e => {
         expect(e.statusCode).toBe(status);
         expect(e.name).toBe('ServerParseError');
@@ -44,7 +44,7 @@ describe('parseAndCheckResponse', () => {
     });
     fetch('error')
       .then(parseAndCheckHttpResponse(operations))
-      .then(done.fail)
+      .then(async r => done.fail((await r.next()).value))
       .catch(e => {
         expect(e.statusCode).toBe(status);
         expect(e.name).toBe('ServerError');
@@ -60,7 +60,7 @@ describe('parseAndCheckResponse', () => {
     fetchMock.mock('begin:/incorrect', data);
     fetch('incorrect')
       .then(parseAndCheckHttpResponse(operations))
-      .then(done.fail)
+      .then(async r => done.fail((await r.next()).value))
       .catch(e => {
         expect(e.statusCode).toBe(200);
         expect(e.name).toBe('ServerError');
@@ -80,10 +80,12 @@ describe('parseAndCheckResponse', () => {
     });
     fetch('data')
       .then(parseAndCheckHttpResponse(operations))
-      .then(({ data, errors: e }) => {
-        expect(data).toEqual({ hello: 'world' });
-        expect(e.length).toEqual(errors.length);
-        expect(e).toEqual(errors);
+      .then(async result => {
+          for await (const { data, errors: e } of result) {
+              expect(data).toEqual({ hello: 'world' });
+              expect(e.length).toEqual(errors.length);
+              expect(e).toEqual(errors);
+          }
         done();
       })
       .catch(done.fail);

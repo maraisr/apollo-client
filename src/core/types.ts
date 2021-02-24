@@ -30,6 +30,11 @@ export type ApolloQueryResult<T> = {
   partial?: boolean;
 };
 
+export interface IncrementalDeliveryPayload<T> extends Pick<ApolloQueryResult<T>, 'data' | 'errors'> {
+  path?: ReadonlyArray<string | number>;
+  hasNext: boolean;
+}
+
 // This is part of the public API, people write these functions in `updateQueries`.
 export type MutationQueryReducer<T> = (
   previousResult: Record<string, any>,

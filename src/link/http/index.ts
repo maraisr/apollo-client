@@ -1,5 +1,5 @@
 export {
-  parseAndCheckHttpResponse,
+  handleHttpResponse,
   ServerParseError
 } from './parseAndCheckHttpResponse';
 export {

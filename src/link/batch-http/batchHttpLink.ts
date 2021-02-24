@@ -4,7 +4,7 @@ import { fromError } from '../utils';
 import {
   serializeFetchParameter,
   selectURI,
-  parseAndCheckHttpResponse,
+  handleHttpResponse,
   checkFetcher,
   selectHttpOptionsAndBody,
   fallbackHttpConfig,
@@ -145,7 +145,7 @@ export class BatchHttpLink extends ApolloLink {
             operations.forEach(operation => operation.setContext({ response }));
             return response;
           })
-          .then(parseAndCheckHttpResponse(operations))
+          .then(handleHttpResponse(operations))
           .then(result => {
             // we have data and can send it to back up the link chain
             observer.next(result);
