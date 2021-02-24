@@ -150,7 +150,6 @@ export const createHttpLink = (linkOptions: HttpOptions = {}) => {
         })
         .then(parseAndCheckHttpResponse(operation))
         .then(async function*(result)  {
-          
           for await (const payload of result) {
             // we have data and can send it to back up the link chain
             observer.next(payload);
